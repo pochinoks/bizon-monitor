@@ -79,51 +79,59 @@ async function sendTelegram(text) {
 
 const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
-// Логин на bizon365, возвращает sid cookie
+// Логин на bizon365, возвращает декодированный sid
 async function login() {
     log('Логин на bizon365...');
 
     // Шаг 1: GET /my/login — получаем sid сессии и captcha значения
-    const loginPage = await httpsGet('start.bizon365.ru', '/my/login', { 'User-Agent': ua });
+    const loginPage = await httpsGet('start.bizon365.ru', '/my/login', {
+        'User-Agent': ua,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+    });
     const setCookies1 = loginPage.headers['set-cookie'] || [];
     const sidCookieRaw = setCookies1.map(c => c.split(';')[0]).find(c => c.startsWith('sid='));
-    const sessionCookie = sidCookieRaw || '';
+    const sidEncoded = sidCookieRaw ? sidCookieRaw.slice(4) : '';
+    const sidDecoded = decodeURIComponent(sidEncoded);
     log(`Login page status: ${loginPage.status}`);
 
     // Извлекаем captcha параметры из HTML
     const cap1Match = loginPage.body.match(/captcha_1\s*=\s*'([^']+)'/);
     const cap2Match = loginPage.body.match(/captcha_2\s*=\s*'([^']+)'/);
-    const captcha_1 = cap1Match ? cap1Match[1] : '';
+    const captcha_1 = cap1Match ? Number(cap1Match[1]) : 0;
     const captcha_2 = cap2Match ? cap2Match[1] : '';
-    log(`captcha_1: ${captcha_1.slice(0, 15)}, captcha_2: ${captcha_2.slice(0, 15)}`);
+    log(`captcha_1: ${captcha_1}, captcha_2: ${captcha_2.slice(0, 15)}...`);
 
-    // Шаг 2: POST /my/login/api/ — JSON запрос
+    // Шаг 2: POST /my/login/api/loginUser — JSON с декодированным SID
     const body = JSON.stringify({
         userlogin: CONFIG.EMAIL,
         password: CONFIG.PASSWORD,
         captcha_1,
         captcha_2,
     });
-    const res = await httpsPost('start.bizon365.ru', '/my/login/api/', {
+    const res = await httpsPost('start.bizon365.ru', '/my/login/api/loginUser', {
         'Content-Type': 'application/json',
-        'Cookie': sessionCookie,
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
+        'Cookie': `sid=${sidDecoded}`,
+        'Origin': 'https://start.bizon365.ru',
         'Referer': 'https://start.bizon365.ru/my/login',
         'X-Requested-With': 'XMLHttpRequest',
         'User-Agent': ua,
     }, body);
 
-    log(`Login POST status: ${res.status}, body: ${JSON.stringify(res.body).slice(0, 200)}`);
+    log(`Login POST status: ${res.status}`);
 
+    if (res.status !== 200) throw new Error(`Логин не удался: ${JSON.stringify(res.body).slice(0, 200)}`);
+
+    // После успешного логина сервер обновляет sid в Set-Cookie
     const allCookies = (res.headers || {})['set-cookie'] || [];
-    log(`Login Set-Cookie: ${allCookies.map(c => c.split(';')[0]).join(', ').slice(0, 150)}`);
-
-    // После успешного логина сервер возвращает новый sid
-    const newSid = allCookies.map(c => c.split(';')[0]).find(c => c.startsWith('sid='));
-    const sid = newSid ? newSid.slice(4) : (sidCookieRaw ? sidCookieRaw.slice(4) : '');
+    const newSidRaw = allCookies.map(c => c.split(';')[0]).find(c => c.startsWith('sid='));
+    const sid = newSidRaw ? decodeURIComponent(newSidRaw.slice(4)) : sidDecoded;
     if (!sid) throw new Error('Логин не удался — sid не получен');
 
     log(`SID получен: ${sid.slice(0, 15)}...`);
-    return decodeURIComponent(sid);
+    return sid;
 }
 
 // Получаем ssid/ssign через loadInitData
