@@ -148,6 +148,7 @@ async function getTokens(roomSlug, sid) {
     log(`[${roomSlug}] Authorized: ${isAuth}`);
     // Ищем CSRF в разных форматах
     const csrfPatterns = [
+        /__bizon\._csrf\s*=\s*"([^"]+)"/,      // bizon365 room page
         /"_csrf"\s*:\s*"([^"]+)"/,
         /name="_csrf"\s+value="([^"]+)"/,
         /csrf[_-]?token["']?\s*[:=]\s*["']([^"']+)/i,
