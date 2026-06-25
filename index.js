@@ -83,33 +83,47 @@ const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 async function login() {
     log('Логин на bizon365...');
 
-    // Шаг 1: получаем CSRF для формы логина
-    const loginPage = await httpsGet('start.bizon365.ru', '/login', { 'User-Agent': ua });
+    // Шаг 1: GET /my/login — получаем sid сессии и captcha значения
+    const loginPage = await httpsGet('start.bizon365.ru', '/my/login', { 'User-Agent': ua });
     const setCookies1 = loginPage.headers['set-cookie'] || [];
-    const csrfCookie = setCookies1.map(c => c.split(';')[0]).find(c => c.startsWith('_csrf='));
-    const csrf = csrfCookie ? csrfCookie.slice(6) : '';
-    const cookieHeader = setCookies1.map(c => c.split(';')[0]).join('; ');
-    log(`Login page status: ${loginPage.status}, csrf: ${csrf.slice(0, 10)}`);
+    const sidCookieRaw = setCookies1.map(c => c.split(';')[0]).find(c => c.startsWith('sid='));
+    const sessionCookie = sidCookieRaw || '';
+    log(`Login page status: ${loginPage.status}`);
 
-    // Шаг 2: POST логин
-    const body = `_csrf=${encodeURIComponent(csrf)}&login=${encodeURIComponent(CONFIG.EMAIL)}&password=${encodeURIComponent(CONFIG.PASSWORD)}`;
-    const res = await httpsPost('start.bizon365.ru', '/login', {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': cookieHeader,
-        'Referer': 'https://start.bizon365.ru/login',
+    // Извлекаем captcha параметры из HTML
+    const cap1Match = loginPage.body.match(/captcha_1\s*=\s*'([^']+)'/);
+    const cap2Match = loginPage.body.match(/captcha_2\s*=\s*'([^']+)'/);
+    const captcha_1 = cap1Match ? cap1Match[1] : '';
+    const captcha_2 = cap2Match ? cap2Match[1] : '';
+    log(`captcha_1: ${captcha_1.slice(0, 15)}, captcha_2: ${captcha_2.slice(0, 15)}`);
+
+    // Шаг 2: POST /my/login/api/ — JSON запрос
+    const body = JSON.stringify({
+        userlogin: CONFIG.EMAIL,
+        password: CONFIG.PASSWORD,
+        captcha_1,
+        captcha_2,
+    });
+    const res = await httpsPost('start.bizon365.ru', '/my/login/api/', {
+        'Content-Type': 'application/json',
+        'Cookie': sessionCookie,
+        'Referer': 'https://start.bizon365.ru/my/login',
+        'X-Requested-With': 'XMLHttpRequest',
         'User-Agent': ua,
     }, body);
 
-    log(`Login POST status: ${res.status}`);
-    const allCookies = res.headers['set-cookie'] || [];
-    log(`Login Set-Cookie: ${allCookies.map(c => c.split(';')[0]).join(', ').slice(0, 100)}`);
+    log(`Login POST status: ${res.status}, body: ${JSON.stringify(res.body).slice(0, 200)}`);
 
-    const sidCookie = allCookies.map(c => c.split(';')[0]).find(c => c.startsWith('sid='));
-    if (!sidCookie) throw new Error('Логин не удался — sid не получен');
+    const allCookies = (res.headers || {})['set-cookie'] || [];
+    log(`Login Set-Cookie: ${allCookies.map(c => c.split(';')[0]).join(', ').slice(0, 150)}`);
 
-    const sid = sidCookie.slice(4);
+    // После успешного логина сервер возвращает новый sid
+    const newSid = allCookies.map(c => c.split(';')[0]).find(c => c.startsWith('sid='));
+    const sid = newSid ? newSid.slice(4) : (sidCookieRaw ? sidCookieRaw.slice(4) : '');
+    if (!sid) throw new Error('Логин не удался — sid не получен');
+
     log(`SID получен: ${sid.slice(0, 15)}...`);
-    return sid;
+    return decodeURIComponent(sid);
 }
 
 // Получаем ssid/ssign через loadInitData
