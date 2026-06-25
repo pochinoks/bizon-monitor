@@ -82,7 +82,7 @@ async function sendTelegram(text) {
 // Получаем ssid/ssign через loadInitData
 async function getTokens(roomSlug) {
     const roomPath = `/room/${CONFIG.GROUP}/${roomSlug}`;
-    const cookie = `sid=${CONFIG.SID}`;
+    const cookie = `sid=${decodeURIComponent(CONFIG.SID)}`;
     const ua = 'Mozilla/5.0 (compatible; BizonMonitor/1.0)';
 
     // Загружаем страницу комнаты чтобы получить _csrf
