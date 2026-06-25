@@ -87,9 +87,11 @@ async function getTokens(roomSlug) {
 
     // Загружаем страницу комнаты чтобы получить _csrf
     const pageRes = await httpsGet('start.bizon365.ru', roomPath, { 'Cookie': cookie, 'User-Agent': ua });
+    log(`[${roomSlug}] Page status: ${pageRes.status}, length: ${pageRes.body.length}`);
+    log(`[${roomSlug}] Page snippet: ${pageRes.body.slice(0, 300).replace(/\n/g, ' ')}`);
     const csrfMatch = pageRes.body.match(/"_csrf"\s*:\s*"([^"]+)"/);
     const csrf = csrfMatch ? csrfMatch[1] : '';
-    log(`[${roomSlug}] _csrf: ${csrf.slice(0,10)}...`);
+    log(`[${roomSlug}] _csrf found: ${!!csrfMatch}, value: ${csrf.slice(0,10)}`);
 
     // Запрашиваем токены
     const pd = `_csrf=${encodeURIComponent(csrf)}&ssid=&lang=1`;
