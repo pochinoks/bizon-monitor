@@ -9,7 +9,7 @@ const CONFIG = {
     // Cookie sid из браузера:
     // F12 → Application → Cookies → start.bizon365.ru → значение поля "sid"
     // Обновлять раз в месяц вручную
-    SID: 's%3ALzC2XiypBpKMQqgbSKe_RmPx2FtICCpk.kqRsUG%2BB2XzkbxKwTAuQgZ2JQM1aFiQ%2BF0uw%2FNRlpng',
+    SID: process.env.SID || 's%3ALzC2XiypBpKMQqgbSKe_RmPx2FtICCpk.kqRsUG%2BB2XzkbxKwTAuQgZ2JQM1aFiQ%2BF0uw%2FNRlpng',
 
     TELEGRAM_BOT_TOKEN: '7042614949:AAES145MXfqlepexPK5koDy10TWPZYi6k5k',
     TELEGRAM_CHAT_ID:   '-5279036150',
@@ -285,6 +285,18 @@ function schedule(roomSlug, timeStr) {
 }
 
 async function main() {
+    // GitHub Actions mode: node index.js room1 room2 ...
+    const rooms = process.argv.slice(2);
+    if (rooms.length > 0) {
+        log('═══════════════════════════════════');
+        log(`GitHub Actions mode: ${rooms.join(', ')}`);
+        log('═══════════════════════════════════');
+        await Promise.all(rooms.map(r => startWebinar(r)));
+        log('Все комнаты завершены');
+        process.exit(0);
+    }
+
+    // Persistent server mode (Railway / Render)
     log('═══════════════════════════════════');
     log('BizonMonitor v1.0 запущен');
     log(`Комнат: ${CONFIG.WEBINARS.length}`);
@@ -298,7 +310,6 @@ async function main() {
         }
     }
 
-    // HTTP сервер — Railway требует открытый порт
     http.createServer((req, res) => { res.writeHead(200); res.end('OK'); })
         .listen(process.env.PORT || 3000, () => log(`HTTP health-check: port ${process.env.PORT || 3000}`));
 }
