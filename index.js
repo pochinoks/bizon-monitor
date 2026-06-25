@@ -85,19 +85,25 @@ async function getTokens(roomSlug) {
     const cookie = `sid=${decodeURIComponent(CONFIG.SID)}`;
     const ua = 'Mozilla/5.0 (compatible; BizonMonitor/1.0)';
 
-    // Загружаем страницу комнаты чтобы получить _csrf
+    // Загружаем страницу комнаты чтобы получить _csrf и все cookies
     const pageRes = await httpsGet('start.bizon365.ru', roomPath, { 'Cookie': cookie, 'User-Agent': ua });
-    log(`[${roomSlug}] Page status: ${pageRes.status}, length: ${pageRes.body.length}`);
-    log(`[${roomSlug}] Page snippet: ${pageRes.body.slice(0, 300).replace(/\n/g, ' ')}`);
+    log(`[${roomSlug}] Page status: ${pageRes.status}`);
+
+    // Собираем все Set-Cookie из ответа
+    const setCookies = pageRes.headers['set-cookie'] || [];
+    const extraCookies = setCookies.map(c => c.split(';')[0]).join('; ');
+    const fullCookie = extraCookies ? `${cookie}; ${extraCookies}` : cookie;
+    log(`[${roomSlug}] Extra cookies: ${extraCookies.slice(0, 80)}`);
+
     const csrfMatch = pageRes.body.match(/"_csrf"\s*:\s*"([^"]+)"/);
     const csrf = csrfMatch ? csrfMatch[1] : '';
-    log(`[${roomSlug}] _csrf found: ${!!csrfMatch}, value: ${csrf.slice(0,10)}`);
+    log(`[${roomSlug}] _csrf found: ${!!csrfMatch}`);
 
-    // Запрашиваем токены
+    // Запрашиваем токены, передаём все cookies
     const pd = `_csrf=${encodeURIComponent(csrf)}&ssid=&lang=1`;
     const res = await httpsPost('start.bizon365.ru', `${roomPath}/loadInitData`, {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': cookie,
+        'Cookie': fullCookie,
         'X-Requested-With': 'XMLHttpRequest',
         'Referer': `https://start.bizon365.ru${roomPath}`,
         'User-Agent': ua,
