@@ -1,0 +1,12 @@
+{
+  "name": "bizon-monitor",
+  "version": "1.0.0",
+  "description": "Bizon365 webinar chat monitor → Telegram",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
