@@ -6,10 +6,8 @@ const crypto = require('crypto');
 //  КОНФИГ — заполни перед деплоем
 // ══════════════════════════════════════════════
 const CONFIG = {
-    // Cookie sid из браузера:
-    // F12 → Application → Cookies → start.bizon365.ru → значение поля "sid"
-    // Обновлять раз в месяц вручную
-    SID: process.env.SID || 's%3ALzC2XiypBpKMQqgbSKe_RmPx2FtICCpk.kqRsUG%2BB2XzkbxKwTAuQgZ2JQM1aFiQ%2BF0uw%2FNRlpng',
+    EMAIL:    process.env.BIZON_EMAIL    || '',
+    PASSWORD: process.env.BIZON_PASSWORD || '',
 
     TELEGRAM_BOT_TOKEN: '7042614949:AAES145MXfqlepexPK5koDy10TWPZYi6k5k',
     TELEGRAM_CHAT_ID:   '-5279036150',
@@ -79,11 +77,45 @@ async function sendTelegram(text) {
     }
 }
 
+const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+// Логин на bizon365, возвращает sid cookie
+async function login() {
+    log('Логин на bizon365...');
+
+    // Шаг 1: получаем CSRF для формы логина
+    const loginPage = await httpsGet('start.bizon365.ru', '/login', { 'User-Agent': ua });
+    const setCookies1 = loginPage.headers['set-cookie'] || [];
+    const csrfCookie = setCookies1.map(c => c.split(';')[0]).find(c => c.startsWith('_csrf='));
+    const csrf = csrfCookie ? csrfCookie.slice(6) : '';
+    const cookieHeader = setCookies1.map(c => c.split(';')[0]).join('; ');
+    log(`Login page status: ${loginPage.status}, csrf: ${csrf.slice(0, 10)}`);
+
+    // Шаг 2: POST логин
+    const body = `_csrf=${encodeURIComponent(csrf)}&login=${encodeURIComponent(CONFIG.EMAIL)}&password=${encodeURIComponent(CONFIG.PASSWORD)}`;
+    const res = await httpsPost('start.bizon365.ru', '/login', {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': cookieHeader,
+        'Referer': 'https://start.bizon365.ru/login',
+        'User-Agent': ua,
+    }, body);
+
+    log(`Login POST status: ${res.status}`);
+    const allCookies = res.headers['set-cookie'] || [];
+    log(`Login Set-Cookie: ${allCookies.map(c => c.split(';')[0]).join(', ').slice(0, 100)}`);
+
+    const sidCookie = allCookies.map(c => c.split(';')[0]).find(c => c.startsWith('sid='));
+    if (!sidCookie) throw new Error('Логин не удался — sid не получен');
+
+    const sid = sidCookie.slice(4);
+    log(`SID получен: ${sid.slice(0, 15)}...`);
+    return sid;
+}
+
 // Получаем ssid/ssign через loadInitData
-async function getTokens(roomSlug) {
+async function getTokens(roomSlug, sid) {
     const roomPath = `/room/${CONFIG.GROUP}/${roomSlug}`;
-    const cookie = `sid=${decodeURIComponent(CONFIG.SID)}`;
-    const ua = 'Mozilla/5.0 (compatible; BizonMonitor/1.0)';
+    const cookie = `sid=${sid}`;
 
     // Загружаем страницу комнаты чтобы получить _csrf и все cookies
     const pageRes = await httpsGet('start.bizon365.ru', roomPath, { 'Cookie': cookie, 'User-Agent': ua });
@@ -275,10 +307,10 @@ function connectWebSocket(roomSlug, ssid, ssign, roomId, durationMs) {
 }
 
 // Запуск мониторинга одной комнаты
-async function startWebinar(roomSlug) {
+async function startWebinar(roomSlug, sid) {
     log(`[${roomSlug}] ▶ Старт мониторинга`);
     try {
-        const { ssid, ssign, roomId } = await getTokens(roomSlug);
+        const { ssid, ssign, roomId } = await getTokens(roomSlug, sid);
         const durationMs = CONFIG.LISTEN_DURATION_MINUTES * 60 * 1000;
         await sendTelegram(`🟢 <b>Мониторинг запущен:</b> ${roomSlug}`);
         await connectWebSocket(roomSlug, ssid, ssign, roomId, durationMs);
@@ -317,7 +349,8 @@ async function main() {
         log('═══════════════════════════════════');
         log(`GitHub Actions mode: ${rooms.join(', ')}`);
         log('═══════════════════════════════════');
-        await Promise.all(rooms.map(r => startWebinar(r)));
+        const sid = await login();
+        await Promise.all(rooms.map(r => startWebinar(r, sid)));
         log('Все комнаты завершены');
         process.exit(0);
     }
