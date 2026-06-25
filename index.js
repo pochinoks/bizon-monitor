@@ -93,11 +93,11 @@ async function getTokens(roomSlug) {
     const setCookies = pageRes.headers['set-cookie'] || [];
     const extraCookies = setCookies.map(c => c.split(';')[0]).join('; ');
     const fullCookie = extraCookies ? `${cookie}; ${extraCookies}` : cookie;
-    log(`[${roomSlug}] Extra cookies: ${extraCookies.slice(0, 80)}`);
 
-    const csrfMatch = pageRes.body.match(/"_csrf"\s*:\s*"([^"]+)"/);
-    const csrf = csrfMatch ? csrfMatch[1] : '';
-    log(`[${roomSlug}] _csrf found: ${!!csrfMatch}`);
+    // CSRF берём из Set-Cookie (double-submit cookie pattern)
+    const csrfCookieMatch = setCookies.map(c => c.split(';')[0]).find(c => c.startsWith('_csrf='));
+    const csrf = csrfCookieMatch ? csrfCookieMatch.slice(6) : '';
+    log(`[${roomSlug}] _csrf from cookie: ${!!csrf}, value: ${csrf.slice(0, 10)}`);
 
     // Запрашиваем токены, передаём все cookies
     const pd = `_csrf=${encodeURIComponent(csrf)}&ssid=&lang=1`;
