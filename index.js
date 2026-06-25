@@ -89,15 +89,33 @@ async function getTokens(roomSlug) {
     const pageRes = await httpsGet('start.bizon365.ru', roomPath, { 'Cookie': cookie, 'User-Agent': ua });
     log(`[${roomSlug}] Page status: ${pageRes.status}`);
 
+    // Ищем признаки авторизации в теле страницы
+    const isAuth = pageRes.body.includes('logout') || pageRes.body.includes('выйти') || pageRes.body.includes('ssid') || pageRes.body.includes('loadInitData');
+    log(`[${roomSlug}] Authorized: ${isAuth}`);
+    // Ищем CSRF в разных форматах
+    const csrfPatterns = [
+        /"_csrf"\s*:\s*"([^"]+)"/,
+        /name="_csrf"\s+value="([^"]+)"/,
+        /csrf[_-]?token["']?\s*[:=]\s*["']([^"']+)/i,
+        /<meta[^>]+name="_csrf"[^>]+content="([^"]+)"/,
+    ];
+    let csrfFromBody = '';
+    for (const p of csrfPatterns) {
+        const m = pageRes.body.match(p);
+        if (m) { csrfFromBody = m[1]; break; }
+    }
+    log(`[${roomSlug}] CSRF from body: ${!!csrfFromBody}`);
+    log(`[${roomSlug}] Body snippet: ${pageRes.body.slice(0, 500).replace(/\s+/g, ' ')}`);
+
     // Собираем все Set-Cookie из ответа
     const setCookies = pageRes.headers['set-cookie'] || [];
     const extraCookies = setCookies.map(c => c.split(';')[0]).join('; ');
     const fullCookie = extraCookies ? `${cookie}; ${extraCookies}` : cookie;
 
-    // CSRF берём из Set-Cookie (double-submit cookie pattern)
+    // CSRF: сначала из тела, иначе из cookie
     const csrfCookieMatch = setCookies.map(c => c.split(';')[0]).find(c => c.startsWith('_csrf='));
-    const csrf = csrfCookieMatch ? csrfCookieMatch.slice(6) : '';
-    log(`[${roomSlug}] _csrf from cookie: ${!!csrf}, value: ${csrf.slice(0, 10)}`);
+    const csrf = csrfFromBody || (csrfCookieMatch ? csrfCookieMatch.slice(6) : '');
+    log(`[${roomSlug}] CSRF used: ${csrf.slice(0, 10)}`);
 
     // Запрашиваем токены, передаём все cookies
     const pd = `_csrf=${encodeURIComponent(csrf)}&ssid=&lang=1`;
