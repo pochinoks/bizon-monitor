@@ -164,13 +164,22 @@ async function getTokens(roomSlug, sid) {
 
     // Собираем все Set-Cookie из ответа
     const setCookies = pageRes.headers['set-cookie'] || [];
-    const extraCookies = setCookies.map(c => c.split(';')[0]).join('; ');
-    const fullCookie = extraCookies ? `${cookie}; ${extraCookies}` : cookie;
+    const pairs = setCookies.map(c => c.split(';')[0]);
 
-    // CSRF: сначала из тела, иначе из cookie
-    const csrfCookieMatch = setCookies.map(c => c.split(';')[0]).find(c => c.startsWith('_csrf='));
-    const csrf = csrfFromBody || (csrfCookieMatch ? csrfCookieMatch.slice(6) : '');
-    log(`[${roomSlug}] CSRF used: ${csrf.slice(0, 10)}`);
+    // Если room page установила новый sid — использовать его (он привязан к комнате)
+    const newSidPair = pairs.find(c => c.startsWith('sid='));
+    const activeSid = newSidPair ? decodeURIComponent(newSidPair.slice(4)) : sid;
+
+    // _csrf cookies (берём последний)
+    const csrfPairs = pairs.filter(c => c.startsWith('_csrf='));
+    const lastCsrfPair = csrfPairs[csrfPairs.length - 1] || '';
+
+    // Cookie для POST: свежий sid + все _csrf
+    const fullCookie = `sid=${activeSid}` + (csrfPairs.length ? '; ' + csrfPairs.join('; ') : '');
+
+    // CSRF токен: из тела (__bizon._csrf) - это и есть то что сервер ожидает в body
+    const csrf = csrfFromBody || (lastCsrfPair ? lastCsrfPair.slice(6) : '');
+    log(`[${roomSlug}] CSRF used: ${csrf.slice(0, 10)}, activeSid changed: ${activeSid !== sid}`);
 
     // Запрашиваем токены, передаём все cookies
     const pd = `_csrf=${encodeURIComponent(csrf)}&ssid=&lang=1`;
