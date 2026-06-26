@@ -175,8 +175,8 @@ async function getTokens(roomSlug, sid) {
     const csrfPairs = pairs.filter(c => c.startsWith('_csrf='));
     const lastCsrfPair = csrfPairs[csrfPairs.length - 1] || '';
 
-    // Cookie для POST: свежий sid + все _csrf
-    const fullCookie = `sid=${activeSid}` + (csrfPairs.length ? '; ' + csrfPairs.join('; ') : '');
+    // Cookie для POST: свежий sid + ТОЛЬКО последняя _csrf (сервер берёт первую из дублей)
+    const fullCookie = `sid=${activeSid}` + (lastCsrfPair ? '; ' + lastCsrfPair : '');
 
     // CSRF токен: из тела (__bizon._csrf) - это и есть то что сервер ожидает в body
     const csrf = csrfFromBody || (lastCsrfPair ? lastCsrfPair.slice(6) : '');
@@ -196,6 +196,7 @@ async function getTokens(roomSlug, sid) {
     if (!res.body || !res.body.ssid) {
         throw new Error(`Токены не получены: ${JSON.stringify(res.body).slice(0, 300)}`);
     }
+    // cf_list может присутствовать вместе с ssid — это нормально (участник ещё не заполнил анкету)
 
     log(`[${roomSlug}] Токены OK. ssid=${res.body.ssid.slice(0,10)}...`);
     return { ssid: res.body.ssid, ssign: res.body.ssign, roomId: `${CONFIG.GROUP}:${roomSlug}` };
