@@ -267,7 +267,6 @@ function connectWebSocket(roomSlug, ssid, ssign, roomId, durationMs) {
             const role  = arr[3] || '';
             const msgid = arr[6] || '';
 
-            if (role !== 'guest') return;
             if (!text.trim()) return;
             if (processed.has(msgid)) return;
             processed.add(msgid);
