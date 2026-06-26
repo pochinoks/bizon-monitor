@@ -9,8 +9,8 @@ const CONFIG = {
     EMAIL:    process.env.BIZON_EMAIL    || '',
     PASSWORD: process.env.BIZON_PASSWORD || '',
 
-    TELEGRAM_BOT_TOKEN: '7042614949:AAES145MXfqlepexPK5koDy10TWPZYi6k5k',
-    TELEGRAM_CHAT_ID:   '-5279036150',
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
+    TELEGRAM_CHAT_ID:   process.env.TELEGRAM_CHAT_ID   || '',
 
     GROUP: '18626',
 
