@@ -2,13 +2,13 @@ name: Webinar 16:00 UTC
 
 on:
   schedule:
-    - cron: '58 15 * * *'  # 15:58 UTC = за 2 мин до 16:00 (NY 12:00 лето)
-  workflow_dispatch:        # ручной запуск для теста
+    - cron: '0 13 * * *'  # 13:00 UTC — запускаем заранее, ждём до 15:58 внутри
+  workflow_dispatch:
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 150   # 2.5 часа максимум
+    timeout-minutes: 360   # 6 часов: до 3ч ожидания + 2ч мониторинга
     env:
       BIZON_EMAIL:         ${{ secrets.BIZON_EMAIL }}
       BIZON_PASSWORD:      ${{ secrets.BIZON_PASSWORD }}
@@ -20,4 +20,15 @@ jobs:
         with:
           node-version: '24'
       - run: npm install
+      - name: Wait until 15:58 UTC
+        run: |
+          TARGET=$(date -u -d "today 15:58:00" +%s)
+          NOW=$(date -u +%s)
+          DIFF=$((TARGET - NOW))
+          if [ $DIFF -gt 0 ]; then
+            echo "Ждём ${DIFF}с до 15:58 UTC..."
+            sleep $DIFF
+          else
+            echo "Уже после 15:58 UTC, запускаем сразу"
+          fi
       - run: node index.js ai_avatar_challenge ai_avatar_challenge2 ai_avatar_challenge3 ai_extra_income

@@ -2,13 +2,13 @@ name: Webinar 23:00 UTC
 
 on:
   schedule:
-    - cron: '58 22 * * *'  # 22:58 UTC = за 2 мин до 23:00 (NY 19:00 лето)
+    - cron: '0 20 * * *'  # 20:00 UTC — запускаем заранее, ждём до 22:58 внутри
   workflow_dispatch:
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 360   # 6 часов: до 3ч ожидания + 2ч мониторинга
     env:
       BIZON_EMAIL:         ${{ secrets.BIZON_EMAIL }}
       BIZON_PASSWORD:      ${{ secrets.BIZON_PASSWORD }}
@@ -20,4 +20,15 @@ jobs:
         with:
           node-version: '24'
       - run: npm install
+      - name: Wait until 22:58 UTC
+        run: |
+          TARGET=$(date -u -d "today 22:58:00" +%s)
+          NOW=$(date -u +%s)
+          DIFF=$((TARGET - NOW))
+          if [ $DIFF -gt 0 ]; then
+            echo "Ждём ${DIFF}с до 22:58 UTC..."
+            sleep $DIFF
+          else
+            echo "Уже после 22:58 UTC, запускаем сразу"
+          fi
       - run: node index.js ai_extra_income
