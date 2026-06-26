@@ -164,6 +164,7 @@ async function getTokens(roomSlug, sid) {
 
     // Собираем все Set-Cookie из ответа
     const setCookies = pageRes.headers['set-cookie'] || [];
+    log(`[${roomSlug}] Room Set-Cookie: ${JSON.stringify(setCookies.map(c => c.split(';')[0]))}`);
     const pairs = setCookies.map(c => c.split(';')[0]);
 
     // Если room page установила новый sid — использовать его (он привязан к комнате)
@@ -180,6 +181,7 @@ async function getTokens(roomSlug, sid) {
     // CSRF токен: из тела (__bizon._csrf) - это и есть то что сервер ожидает в body
     const csrf = csrfFromBody || (lastCsrfPair ? lastCsrfPair.slice(6) : '');
     log(`[${roomSlug}] CSRF used: ${csrf.slice(0, 10)}, activeSid changed: ${activeSid !== sid}`);
+    log(`[${roomSlug}] Full cookie sent: ${fullCookie.slice(0, 100)}`);
 
     // Запрашиваем токены, передаём все cookies
     const pd = `_csrf=${encodeURIComponent(csrf)}&ssid=&lang=1`;
