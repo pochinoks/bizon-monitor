@@ -17,10 +17,12 @@ const CONFIG = {
     // Расписание в UTC. Сейчас лето: NY 12:00 = UTC 16:00, NY 19:00 = UTC 23:00
     // Зимой поменять на 17:00 и 00:00
     WEBINARS: [
-        { room: 'ai_avatar_challenge',  scheduleUTC: ['16:00'] },
-        { room: 'ai_avatar_challenge2', scheduleUTC: ['16:00'] },
-        { room: 'ai_avatar_challenge3', scheduleUTC: ['16:00'] },
-        { room: 'ai_extra_income',      scheduleUTC: ['16:00', '23:00'] },
+        { room: 'viral_reels_masterclass',   scheduleUTC: ['16:00', '23:00'] },
+        { room: 'claude_masterclass_1',      scheduleUTC: ['16:00', '23:00'] },
+        { room: 'claude_masterclass_2',      scheduleUTC: ['16:00', '23:00'] },
+        { room: 'ai_freeclass',              scheduleUTC: ['16:00', '23:00'] },
+        { room: 'top_sellers_webinar',       scheduleUTC: ['16:00', '23:00'] },
+        { room: 'waitlist_ai_income_system', scheduleUTC: ['16:00', '23:00'] },
     ],
 
     // Сколько минут слушать вебинар после подключения
