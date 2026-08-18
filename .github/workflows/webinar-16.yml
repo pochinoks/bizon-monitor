@@ -31,4 +31,4 @@ jobs:
           else
             echo "Уже после 15:58 UTC, запускаем сразу"
           fi
-      - run: node index.js ai_avatar_challenge ai_avatar_challenge2 ai_avatar_challenge3 ai_extra_income
+      - run: node index.js viral_reels_masterclass claude_masterclass_1 claude_masterclass_2 ai_freeclass top_sellers_webinar waitlist_ai_income_system
